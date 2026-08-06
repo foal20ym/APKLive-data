@@ -20,9 +20,10 @@ The update script:
 
 1. Fetches the full upstream dataset once.
 2. Retains only fields used by APKLive.
-3. Rejects empty, unexpectedly small, or duplicate datasets.
-4. Produces a minified `products.json` and a checksum manifest.
-5. Commits the result only after every validation succeeds.
+3. Uses `productNumber` as the stable SKU identity, with `productId` as fallback.
+4. Deterministically merges duplicate SKU rows and rejects an abnormal duplicate rate.
+5. Produces a minified `products.json` and a checksum manifest.
+6. Commits the result only after every validation succeeds.
 
 Run locally with Node.js 22 or later:
 

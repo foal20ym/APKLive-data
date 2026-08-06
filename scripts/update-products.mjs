@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const SOURCE_URL = "https://susbolaget.emrik.org/v1/products";
 const MINIMUM_PRODUCT_COUNT = 10_000;
+const MAXIMUM_DUPLICATE_RATIO = 0.02;
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "..");
 const outputDirectory = resolve(repositoryRoot, "data");
@@ -72,15 +73,63 @@ function isValidProduct(product) {
   );
 }
 
+function stableProductId(product) {
+  return product.productNumber ?? product.productId;
+}
+
+function completenessScore(product) {
+  return Object.values(product).filter((value) => value !== null && value !== "").length;
+}
+
+function preferredDuplicate(left, right) {
+  const scoreDifference = completenessScore(right) - completenessScore(left);
+  if (scoreDifference > 0) return right;
+  if (scoreDifference < 0) return left;
+
+  // Ensure that input ordering cannot change which equally complete row wins.
+  return JSON.stringify(left).localeCompare(JSON.stringify(right)) <= 0 ? left : right;
+}
+
 const source = await loadSourceProducts();
 if (!Array.isArray(source.products)) {
   throw new Error("Source payload is not a product array");
 }
 
-const reducedProducts = source.products
+const validProducts = source.products
   .map(reduceProduct)
-  .filter(isValidProduct)
-  .sort((left, right) => left.productId.localeCompare(right.productId));
+  .filter(isValidProduct);
+
+const productsByStableId = new Map();
+let duplicateRows = 0;
+let conflictingDuplicateRows = 0;
+
+for (const product of validProducts) {
+  const stableId = stableProductId(product);
+  const existingProduct = productsByStableId.get(stableId);
+
+  if (!existingProduct) {
+    productsByStableId.set(stableId, product);
+    continue;
+  }
+
+  duplicateRows += 1;
+  if (JSON.stringify(existingProduct) !== JSON.stringify(product)) {
+    conflictingDuplicateRows += 1;
+  }
+  productsByStableId.set(stableId, preferredDuplicate(existingProduct, product));
+}
+
+const duplicateRatio = duplicateRows / Math.max(validProducts.length, 1);
+if (duplicateRatio > MAXIMUM_DUPLICATE_RATIO) {
+  throw new Error(
+    `Validation failed: ${duplicateRows} duplicate SKU rows ` +
+      `(${(duplicateRatio * 100).toFixed(2)}%) exceeds the allowed 2%`,
+  );
+}
+
+const reducedProducts = [...productsByStableId.values()].sort((left, right) =>
+  stableProductId(left).localeCompare(stableProductId(right)),
+);
 
 if (reducedProducts.length < MINIMUM_PRODUCT_COUNT) {
   throw new Error(
@@ -88,9 +137,9 @@ if (reducedProducts.length < MINIMUM_PRODUCT_COUNT) {
   );
 }
 
-const uniqueProductIds = new Set(reducedProducts.map((product) => product.productId));
+const uniqueProductIds = new Set(reducedProducts.map(stableProductId));
 if (uniqueProductIds.size !== reducedProducts.length) {
-  throw new Error("Validation failed: duplicate product IDs found");
+  throw new Error("Validation failed: duplicate stable SKU identities remain");
 }
 
 const productsJSON = JSON.stringify(reducedProducts);
@@ -103,6 +152,8 @@ const manifest = {
   file: "products.json",
   sha256: checksum,
   source: source.source,
+  duplicateRowsRemoved: duplicateRows,
+  conflictingDuplicateRows,
 };
 
 await mkdir(outputDirectory, { recursive: true });
@@ -110,4 +161,7 @@ await writeFile(productsPath, productsJSON);
 await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
 console.log(`Wrote ${reducedProducts.length} products`);
+console.log(
+  `Removed ${duplicateRows} duplicate SKU rows (${conflictingDuplicateRows} conflicting)`,
+);
 console.log(`SHA-256: ${checksum}`);
