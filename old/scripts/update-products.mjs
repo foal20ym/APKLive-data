@@ -44,18 +44,6 @@ function optionalString(value) {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-function productImageUrl(product) {
-  const legacyImageUrl = optionalString(product.imageUrl);
-  if (legacyImageUrl) return legacyImageUrl;
-
-  if (!Array.isArray(product.images)) return null;
-  for (const image of product.images) {
-    const nestedImageUrl = optionalString(image?.imageUrl);
-    if (nestedImageUrl) return nestedImageUrl;
-  }
-  return null;
-}
-
 function reduceProduct(product) {
   return {
     productId: String(product.productId ?? ""),
@@ -66,9 +54,7 @@ function reduceProduct(product) {
     price: Number(product.price),
     productNumberShort: optionalString(product.productNumberShort),
     productNumber: optionalString(product.productNumber),
-    // Older API snapshots exposed imageUrl directly. Current snapshots place
-    // the same base URL inside images[]. Support both schemas.
-    imageUrl: productImageUrl(product),
+    imageUrl: optionalString(product.imageUrl),
     customCategoryTitle: optionalString(product.customCategoryTitle),
     country: optionalString(product.country),
   };

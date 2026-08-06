@@ -1,0 +1,12 @@
+{
+  "name": "apklive-data",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "update": "node scripts/update-products.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
