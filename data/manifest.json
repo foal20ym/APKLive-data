@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-06T08:40:51.366Z",
-  "productCount": 27206,
+  "generatedAt": "2026-08-06T08:58:27.504Z",
+  "productCount": 27202,
   "file": "products.json",
-  "sha256": "5e563beaefbccd42a64448e99f3a9f822f7bf994fbe80fd7c5943ce6d11ce1d6",
+  "sha256": "afa1597473a3f4996272abd4ec3c2f0615559f4b8cc77531221a03cb619e33aa",
   "source": "https://susbolaget.emrik.org/v1/products",
   "duplicateRowsRemoved": 0,
   "conflictingDuplicateRows": 0
